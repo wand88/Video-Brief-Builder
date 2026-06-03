@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Brief Builder — AI video prompt</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #07080d;
+    --panel: #10121b;
+    --panel-2: #181b27;
+    --ink: #eef0f7;
+    --ink-dim: #888ca0;
+    --line: #262a3a;
+    --c1: #ff5d73;
+    --c2: #7b6cff;
+    --c3: #2fd9c5;
+    --accent: #ff5d73;
+    --glow: rgba(123,108,255,.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(123,108,255,.16), transparent 50%),
+      radial-gradient(ellipse at 85% 100%, rgba(47,217,197,.12), transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(255,93,115,.06), transparent 60%);
+    color: var(--ink);
+    font-family: 'Sora', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 34px 18px 70px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { width: 100%; max-width: 760px; }
+
+  header { text-align: center; margin-bottom: 30px; }
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--c3);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(36px, 8vw, 62px);
+    line-height: 1;
+    letter-spacing: -.01em;
+  }
+  h1 em { font-style: italic; color: var(--c1); }
+  .sub { color: var(--ink-dim); font-size: 14px; line-height: 1.6; max-width: 480px; margin: 16px auto 0; }
+
+  /* steps progress */
+  .steps-bar { display: flex; gap: 8px; margin-bottom: 28px; }
+  .step-dot {
+    flex: 1; height: 5px; border-radius: 99px; background: var(--panel-2);
+    overflow: hidden; position: relative;
+  }
+  .step-dot.active { background: linear-gradient(90deg, var(--c2), var(--c1)); }
+  .step-dot.done { background: var(--c3); }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 34px 30px;
+    box-shadow: 0 30px 80px -40px rgba(0,0,0,.9);
+    animation: fade .4s ease both;
+  }
+  @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    letter-spacing: .15em;
+    margin-bottom: 10px;
+  }
+  .q {
+    font-family: 'DM Serif Display', serif;
+    font-size: 27px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .q-help { color: var(--ink-dim); font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
+
+  .opts { display: grid; gap: 12px; }
+  .opts.two { grid-template-columns: 1fr 1fr; }
+  .opts.cards { grid-template-columns: 1fr 1fr; }
+
+  .opt {
+    border: 1.5px solid var(--line);
+    background: var(--panel-2);
+    color: var(--ink);
+    text-align: left;
+    padding: 16px 18px;
+    border-radius: 13px;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    transition: transform .14s, border-color .2s, background .2s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .opt:hover { transform: translateY(-2px); border-color: var(--c2); }
+  .opt.sel { border-color: var(--c1); background: rgba(255,93,115,.1); box-shadow: 0 0 0 3px rgba(255,93,115,.12); }
+  .opt .label { font-weight: 700; font-size: 15px; }
+  .opt .desc { font-size: 12px; color: var(--ink-dim); line-height: 1.4; }
+  .opt .emoji { font-size: 22px; margin-bottom: 2px; }
+
+  textarea, input[type=text] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1.5px solid var(--line);
+    border-radius: 13px;
+    color: var(--ink);
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    padding: 15px 16px;
+    resize: vertical;
+    transition: border-color .2s;
+  }
+  textarea:focus, input:focus { outline: none; border-color: var(--c2); }
+  textarea { min-height: 90px; }
+
+  .nav { display: flex; gap: 12px; margin-top: 28px; }
+  .btn {
+    flex: 1;
+    border: none;
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 15px;
+    border-radius: 13px;
+    cursor: pointer;
+    transition: filter .2s, transform .14s, opacity .2s;
+  }
+  .btn-primary { background: linear-gradient(100deg, var(--c1), var(--c2)); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-2px); }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; filter: none; }
+  .btn-ghost { flex: 0 0 auto; background: transparent; border: 1.5px solid var(--line); color: var(--ink-dim); padding: 15px 24px; }
+  .btn-ghost:hover { border-color: var(--ink-dim); color: var(--ink); }
+
+  /* result */
+  .result-head { text-align: center; margin-bottom: 24px; }
+  .result-head .q { color: var(--c3); }
+  .tool-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 99px; margin-top: 6px;
+  }
+  .tool-chip b { color: var(--c1); }
+
+  .prompt-box {
+    background: #0a0b12;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .prompt-box .pb-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 12px; display: block;
+  }
+  .prompt-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: #d4d8ea;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .prompt-text .hl { color: var(--c3); }
+
+  .copy-btn {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; transition: all .2s;
+  }
+  .copy-btn:hover { border-color: var(--c3); color: var(--c3); }
+  .copy-btn.copied { background: var(--c3); color: #07080d; border-color: var(--c3); }
+
+  .tip {
+    background: rgba(47,217,197,.07);
+    border: 1px solid rgba(47,217,197,.25);
+    border-radius: 13px;
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #b9e8e1;
+    margin-bottom: 14px;
+  }
+  .tip b { color: var(--c3); }
+
+  .summary-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .summary-grid .s-item {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 11px; padding: 12px 14px;
+  }
+  .summary-grid .s-item .k {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    letter-spacing: .15em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px;
+  }
+  .summary-grid .s-item .v { font-size: 13px; color: var(--ink); font-weight: 600; }
+
+  footer {
+    margin-top: 40px; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-dim); letter-spacing: .06em;
+  }
+
+  @media (max-width: 540px) {
+    .opts.two, .opts.cards, .summary-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Vežba — AI video produkcija</div>
+    <h1>Video Brief <em>Builder</em></h1>
+    <p class="sub">Odgovori na 7 pitanja i dobićeš gotov, profesionalan prompt prilagođen alatu koji koristiš — spreman da ga kopiraš direktno u generator.</p>
+  </header>
+
+  <div class="steps-bar" id="stepsBar"></div>
+
+  <div id="stage"></div>
+
+  <footer>© 2026 Lazar Jovanović · Trening alat za AI video produkciju</footer>
+</div>
+
+<script>
+const TOOLS = {
+  seedance: { name: "Seedance 2.0", vendor: "ByteDance", note: "Multimodalni model — najjači za nativni zvuk, lip-sync i multi-shot scene. Idealan kad scenu opisuješ kao režiser." },
+  veo: { name: "Veo 3.1", vendor: "Google DeepMind", note: "Native audio u jednom prolazu, do 4K, odlična doslednost lica. Dostupan kroz Google Vids." },
+  kling: { name: "Kling 3.0", vendor: "Kuaishou", note: "Najbolji za realnu fiziku i kompleksan ljudski pokret; jak na 4K i dugim scenama." },
+  runway: { name: "Runway Gen-4.5", vendor: "Runway", note: "Najbolji za filmsku doradu, Motion Brush i preciznu kontrolu — favorit profesionalnih editora." }
+};
+
+const STEPS = [
+  {
+    id: "tool", type: "cards",
+    q: "Koji AI video alat koristiš?",
+    help: "Prompt će biti prilagođen jačim stranama izabranog alata.",
+    options: [
+      { v: "seedance", emoji: "🎬", label: "Seedance 2.0", desc: "ByteDance · multimodalni, nativni zvuk" },
+      { v: "veo", emoji: "🟦", label: "Veo 3.1", desc: "Google · native audio, do 4K" },
+      { v: "kling", emoji: "🎞️", label: "Kling 3.0", desc: "Kuaishou · realna fizika, pokret" },
+      { v: "runway", emoji: "🎥", label: "Runway Gen-4.5", desc: "filmska dorada, Motion Brush" }
+    ]
+  },
+  {
+    id: "scene", type: "textarea",
+    q: "Opiši scenu",
+    help: "Šta se vidi u kadru? Ko, šta, gde. Budi konkretan — to je najvažniji deo brifa.",
+    placeholder: "npr. Mlada baristkinja priprema kafu u modernom kafiću ujutru, para se diže iz šoljice, svetlost ulazi kroz veliki prozor..."
+  },
+  {
+    id: "style", type: "cards",
+    q: "Vizuelni stil",
+    help: "Definiše atmosferu i estetiku celog klipa.",
+    options: [
+      { v: "Kinematografski, filmski look", emoji: "🎟️", label: "Kinematografski", desc: "filmska zrnatost, dramatično svetlo" },
+      { v: "Čist komercijalni / reklamni stil", emoji: "✨", label: "Komercijalni", desc: "blistav, proizvod u fokusu" },
+      { v: "Dokumentarni, realističan", emoji: "📰", label: "Dokumentarni", desc: "prirodno svetlo, autentično" },
+      { v: "Animirani / stilizovani", emoji: "🎨", label: "Animirani", desc: "ilustrativan, stilizovan" }
+    ]
+  },
+  {
+    id: "mood", type: "cards",
+    q: "Ton i raspoloženje",
+    help: "Emocija koju klip treba da prenese.",
+    options: [
+      { v: "Energično i dinamično", emoji: "⚡", label: "Energično", desc: "brz tempo, uzbuđenje" },
+      { v: "Smireno i elegantno", emoji: "🌙", label: "Smireno", desc: "sporo, premium osećaj" },
+      { v: "Toplo i emotivno", emoji: "❤️", label: "Toplo", desc: "ljudski, prisno" },
+      { v: "Ozbiljno i profesionalno", emoji: "🏛️", label: "Profesionalno", desc: "korporativno, pouzdano" }
+    ]
+  },
+  {
+    id: "camera", type: "cards",
+    q: "Pokret kamere",
+    help: "Kako se kamera ponaša tokom kadra.",
+    options: [
+      { v: "Statična kamera", emoji: "🔲", label: "Statična", desc: "fiksni kadar, bez pokreta" },
+      { v: "Spori zoom ka subjektu", emoji: "🔍", label: "Spori zoom", desc: "postepeno približavanje" },
+      { v: "Vožnja kamere (tracking shot)", emoji: "➡️", label: "Tracking", desc: "kamera prati pokret" },
+      { v: "Dinamičan, ručni pokret", emoji: "🤳", label: "Handheld", desc: "energično, ručna kamera" }
+    ]
+  },
+  {
+    id: "duration", type: "cards",
+    q: "Trajanje i format",
+    help: "Dužina klipa i odnos stranica.",
+    options: [
+      { v: "5 sekundi, vertikalno 9:16 (Reels/TikTok)", emoji: "📱", label: "5s · 9:16", desc: "vertikalno za social" },
+      { v: "8 sekundi, horizontalno 16:9", emoji: "🖥️", label: "8s · 16:9", desc: "klasično, web/YouTube" },
+      { v: "10 sekundi, kvadratno 1:1", emoji: "⬛", label: "10s · 1:1", desc: "feed post" },
+      { v: "15 sekundi, kinematografski 21:9", emoji: "🎬", label: "15s · 21:9", desc: "široki filmski kadar" }
+    ]
+  },
+  {
+    id: "voiceover", type: "two",
+    q: "Voiceover / dijalog",
+    help: "Da li klip treba da ima govor ili zvuk?",
+    options: [
+      { v: "Da, sa voiceover naracijom", emoji: "🎙️", label: "Da — voiceover", desc: "naracija preko scene" },
+      { v: "Da, sa dijalogom likova", emoji: "💬", label: "Da — dijalog", desc: "likovi govore (lip-sync)" },
+      { v: "Bez govora, samo ambijentalni zvuk", emoji: "🔊", label: "Samo ambijent", desc: "zvuk okruženja, bez govora" },
+      { v: "Potpuno bez zvuka", emoji: "🔇", label: "Bez zvuka", desc: "tih klip" }
+    ]
+  }
+];
+
+let current = 0;
+const answers = {};
+
+const stage = document.getElementById('stage');
+const stepsBar = document.getElementById('stepsBar');
+
+function renderStepsBar() {
+  stepsBar.innerHTML = '';
+  for (let i = 0; i <= STEPS.length; i++) {
+    const d = document.createElement('div');
+    d.className = 'step-dot' + (i < current ? ' done' : i === current ? ' active' : '');
+    stepsBar.appendChild(d);
+  }
+}
+
+function renderStep() {
+  renderStepsBar();
+  const s = STEPS[current];
+  const saved = answers[s.id];
+
+  let optsHTML = '';
+  if (s.type === 'textarea') {
+    optsHTML = `<textarea id="ta" placeholder="${s.placeholder}">${saved || ''}</textarea>`;
+  } else {
+    const cls = s.type === 'two' ? 'opts two' : 'opts cards';
+    optsHTML = `<div class="${cls}">` + s.options.map(o => `
+      <button class="opt ${saved === o.v ? 'sel' : ''}" data-v="${o.v.replace(/"/g,'&quot;')}">
+        ${o.emoji ? `<span class="emoji">${o.emoji}</span>` : ''}
+        <span class="label">${o.label}</span>
+        <span class="desc">${o.desc}</span>
+      </button>`).join('') + `</div>`;
+  }
+
+  stage.innerHTML = `
+    <div class="panel">
+      <div class="step-num">KORAK ${current + 1} / ${STEPS.length}</div>
+      <div class="q">${s.q}</div>
+      <div class="q-help">${s.help}</div>
+      ${optsHTML}
+      <div class="nav">
+        ${current > 0 ? '<button class="btn btn-ghost" id="back">← Nazad</button>' : ''}
+        <button class="btn btn-primary" id="next" disabled>${current === STEPS.length - 1 ? 'Generiši prompt ✦' : 'Dalje →'}</button>
+      </div>
+    </div>`;
+
+  const nextBtn = document.getElementById('next');
+
+  function checkValid() {
+    if (s.type === 'textarea') {
+      nextBtn.disabled = document.getElementById('ta').value.trim().length < 3;
+    } else {
+      nextBtn.disabled = !answers[s.id];
+    }
+  }
+
+  if (s.type === 'textarea') {
+    const ta = document.getElementById('ta');
+    ta.addEventListener('input', () => { answers[s.id] = ta.value.trim(); checkValid(); });
+  } else {
+    stage.querySelectorAll('.opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        answers[s.id] = btn.dataset.v;
+        stage.querySelectorAll('.opt').forEach(b => b.classList.remove('sel'));
+        btn.classList.add('sel');
+        checkValid();
+      });
+    });
+  }
+  checkValid();
+
+  nextBtn.addEventListener('click', () => {
+    if (current === STEPS.length - 1) renderResult();
+    else { current++; renderStep(); }
+  });
+  const back = document.getElementById('back');
+  if (back) back.addEventListener('click', () => { current--; renderStep(); });
+}
+
+function buildPrompt() {
+  const tool = TOOLS[answers.tool];
+  const scene = answers.scene;
+  const style = answers.style;
+  const mood = answers.mood;
+  const camera = answers.camera;
+  const duration = answers.duration;
+  const vo = answers.voiceover;
+
+  // Tool-specific framing
+  let intro;
+  if (answers.tool === 'seedance') intro = "Multi-shot kinematografska scena:";
+  else if (answers.tool === 'veo') intro = "Cinematic video sa nativnim zvukom:";
+  else if (answers.tool === 'kling') intro = "Realistična scena sa prirodnim pokretom:";
+  else intro = "Filmski kadar za dalju doradu:";
+
+  const lines = [
+    `${intro} ${scene}`,
+    `Stil: ${style}.`,
+    `Ton: ${mood}.`,
+    `Kamera: ${camera}.`,
+    `Format: ${duration}.`,
+    `Zvuk: ${vo}.`
+  ];
+  return lines.join('\n');
+}
+
+function toolTip() {
+  switch (answers.tool) {
+    case 'seedance': return "<b>Seedance 2.0 savet:</b> ako scena sadrži konkretnu osobu, proizvod ili brend, dodaj referentnu sliku uz prompt — model čuva detalje kroz kadrove. Za dijalog navedi i jezik.";
+    case 'veo': return "<b>Veo 3.1 savet:</b> model generiše zvuk u istom prolazu — opiši i ambijentalni zvuk koji želiš. Dostupan besplatno do 10 klipova mesečno kroz Google Vids.";
+    case 'kling': return "<b>Kling 3.0 savet:</b> najjači kad scenu pokreneš iz referentne slike (image-to-video) za kompleksan ljudski pokret. Drži pokret kamere jasnim i jednostavnim.";
+    case 'runway': return "<b>Runway Gen-4.5 savet:</b> nakon generisanja koristi Motion Brush i alate za doradu da precizno kontrolišeš pojedine elemente kadra.";
+  }
+}
+
+function renderResult() {
+  renderStepsBar();
+  stepsBar.querySelectorAll('.step-dot').forEach(d => { d.classList.remove('active'); d.classList.add('done'); });
+
+  const tool = TOOLS[answers.tool];
+  const prompt = buildPrompt();
+
+  stage.innerHTML = `
+    <div class="panel">
+      <div class="result-head">
+        <div class="step-num">✦ TVOJ BRIF JE SPREMAN</div>
+        <div class="q">Gotov prompt</div>
+        <div class="tool-chip">za alat: <b>${tool.name}</b> · ${tool.vendor}</div>
+      </div>
+
+      <div class="prompt-box">
+        <span class="pb-label">Prompt — klikni za kopiranje</span>
+        <button class="copy-btn" id="copyBtn">Kopiraj</button>
+        <div class="prompt-text" id="promptText">${prompt.replace(/</g,'&lt;')}</div>
+      </div>
+
+      <div class="tip">${toolTip()}</div>
+
+      <div class="summary-grid">
+        <div class="s-item"><div class="k">Stil</div><div class="v">${shortLabel('style')}</div></div>
+        <div class="s-item"><div class="k">Ton</div><div class="v">${shortLabel('mood')}</div></div>
+        <div class="s-item"><div class="k">Kamera</div><div class="v">${shortLabel('camera')}</div></div>
+        <div class="s-item"><div class="k">Format</div><div class="v">${shortLabel('duration')}</div></div>
+      </div>
+
+      <div class="nav">
+        <button class="btn btn-ghost" id="back">← Izmeni</button>
+        <button class="btn btn-primary" id="restart">Novi brif ↻</button>
+      </div>
+    </div>`;
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(prompt).then(() => {
+      const b = document.getElementById('copyBtn');
+      b.textContent = '✓ Kopirano';
+      b.classList.add('copied');
+      setTimeout(() => { b.textContent = 'Kopiraj'; b.classList.remove('copied'); }, 1800);
+    });
+  });
+  document.getElementById('back').addEventListener('click', () => { current = STEPS.length - 1; renderStep(); });
+  document.getElementById('restart').addEventListener('click', () => {
+    current = 0;
+    Object.keys(answers).forEach(k => delete answers[k]);
+    renderStep();
+  });
+}
+
+function shortLabel(id) {
+  const s = STEPS.find(x => x.id === id);
+  const o = s.options.find(x => x.v === answers[id]);
+  return o ? o.label : answers[id];
+}
+
+renderStep();
+</script>
+</body>
+</html>
